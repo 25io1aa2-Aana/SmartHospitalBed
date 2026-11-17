@@ -1,0 +1,298 @@
+/* ==========================================
+   Smart Hospital Bed Dashboard - Main Styles
+   ========================================== */
+
+:root {
+    --bg-main: #ebf1f6;
+    --sidebar-bg: #0f2c59;
+    --card-bg: #ffffff;
+    --primary-blue: #1877f2;
+    --text-primary: #1e293b;
+    --text-muted: #64748b;
+    --accent-green: #10b981;
+    --accent-red: #dc2626;
+    --accent-gray: #94a3b8;
+    --border-light: #e2e8f0;
+    --shadow-sm: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+body {
+    background-color: var(--bg-main);
+    color: var(--text-primary);
+    display: flex;
+    height: 100vh;
+    overflow: hidden;
+}
+
+/* --- App Container & Sidebar --- */
+.app-container {
+    display: flex;
+    width: 100%;
+    height: 100%;
+}
+
+.sidebar {
+    width: 220px;
+    background-color: var(--sidebar-bg);
+    color: white;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 20px 0;
+}
+
+.sidebar-logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0 20px 20px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.sidebar-menu {
+    list-style: none;
+    margin-top: 20px;
+}
+
+.sidebar-menu li a {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 20px;
+    color: #94a3b8;
+    text-decoration: none;
+    font-size: 0.95rem;
+    transition: all 0.2s ease;
+}
+
+.sidebar-menu li.active a,
+.sidebar-menu li a:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+    color: white;
+    border-left: 4px solid var(--primary-blue);
+}
+
+/* --- Main Layout --- */
+.main-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+}
+
+.header-nav {
+    background-color: var(--sidebar-bg);
+    color: white;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px 30px;
+}
+
+.dashboard-grid {
+    display: grid;
+    grid-template-columns: 1fr 340px;
+    gap: 20px;
+    padding: 20px;
+}
+
+.left-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+/* --- Cards & Badges --- */
+.card {
+    background: var(--card-bg);
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: var(--shadow-sm);
+    border: 1px solid var(--border-light);
+}
+
+/* Patient Header Info */
+.patient-info-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.patient-details {
+    display: flex;
+    gap: 30px;
+}
+
+.detail-item label {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    display: block;
+}
+
+.detail-item span {
+    font-weight: 600;
+    font-size: 1.05rem;
+}
+
+.badge-status {
+    padding: 6px 16px;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.badge-stable {
+    background-color: #d1fae5;
+    color: #065f46;
+}
+
+/* --- Sensor Cards --- */
+.vitals-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 15px;
+}
+
+.vital-card {
+    position: relative;
+}
+
+.vital-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+    color: var(--text-muted);
+}
+
+.vital-value {
+    font-size: 1.8rem;
+    font-weight: 700;
+    margin-bottom: 8px;
+}
+
+.vital-value unit {
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    font-weight: 400;
+}
+
+.tag-normal {
+    display: inline-block;
+    background-color: #d1fae5;
+    color: #047857;
+    font-size: 0.75rem;
+    padding: 2px 10px;
+    border-radius: 10px;
+    font-weight: 600;
+}
+
+/* --- UNAAVAILABLE Sensor State --- */
+.vital-card.unavailable {
+    background-color: #f8fafc;
+    border: 1px dashed var(--accent-gray);
+    opacity: 0.75;
+}
+
+.vital-card.unavailable .vital-value {
+    font-size: 1.1rem;
+    color: var(--accent-gray);
+    font-weight: 600;
+    margin: 15px 0;
+}
+
+.tag-unavailable {
+    display: inline-block;
+    background-color: #f1f5f9;
+    color: var(--accent-gray);
+    font-size: 0.75rem;
+    padding: 2px 10px;
+    border-radius: 10px;
+    font-weight: 600;
+}
+
+/* --- Tables --- */
+.readings-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+}
+
+.readings-table th,
+.readings-table td {
+    padding: 12px 15px;
+    text-align: left;
+    font-size: 0.9rem;
+}
+
+.readings-table th {
+    color: var(--text-muted);
+    font-weight: 600;
+    border-bottom: 1px solid var(--border-light);
+}
+
+.readings-table tr:nth-child(even) {
+    background-color: #f8fafc;
+}
+
+/* --- Right Side: SOS & Emergency Panel --- */
+.right-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.sos-card {
+    background-color: #fef2f2;
+    border: 1px solid #fecaca;
+    border-radius: 12px;
+    padding: 20px;
+    text-align: center;
+}
+
+.sos-header {
+    background-color: var(--accent-red);
+    color: white;
+    padding: 15px;
+    border-radius: 8px;
+    font-weight: 700;
+    font-size: 1.2rem;
+    margin-bottom: 15px;
+}
+
+.sos-button {
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    background-color: var(--accent-red);
+    color: white;
+    font-size: 1.5rem;
+    font-weight: bold;
+    border: 6px solid #fca5a5;
+    margin: 20px auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 0 15px rgba(220, 38, 38, 0.4);
+}
+
+.sos-alert-btn {
+    width: 100%;
+    background-color: var(--accent-red);
+    color: white;
+    padding: 12px;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+}

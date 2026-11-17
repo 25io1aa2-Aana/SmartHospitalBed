@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Hospital Bed Portal</title>
+    <link rel="stylesheet" href="style.css">
+    
+    <!-- Firebase JS Web SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+</head>
+<body>
+
+    <div class="app-container">
+        <!-- Sidebar Navigation -->
+        <div class="sidebar">
+            <div class="sidebar-logo"><h2>Smart Bed</h2></div>
+            <ul class="sidebar-menu">
+                <li class="active" onclick="switchTab('dashboard')"><a href="#">Dashboard</a></li>
+                <li onclick="switchTab('patient-checkin')"><a href="#">Patient Check-In</a></li>
+                <li onclick="switchTab('doctor-portal')"><a href="#">Doctor Portal</a></li>
+                <li onclick="switchTab('alarm-history')"><a href="#">Alarm History</a></li>
+            </ul>
+        </div>
+
+        <div class="main-content">
+            <header class="header-nav">
+                <h1>Hospital Bed Management Portal</h1>
+                <div id="systemBadge" class="status-indicator" style="background:#10b981;">CONNECTION ESTABLISHED</div>
+            </header>
+
+            <!-- TAB 1: LIVE DASHBOARD -->
+            <div id="tab-dashboard" class="tab-page">
+                
+                <!-- 1. TOP SECTION: ACTIVE PATIENT INFO -->
+                <div class="card patient-info-card" style="margin-bottom:20px;">
+                    <div class="patient-details">
+                        <div class="detail-item"><label>Patient ID</label><span id="dashPatientId">--</span></div>
+                        <div class="detail-item"><label>Name</label><span id="dashName">No Active Patient</span></div>
+                        <div class="detail-item"><label>Bed No.</label><span id="dashBed">--</span></div>
+                        <div class="detail-item"><label>Diagnosis</label><span id="dashDiagnosis">--</span></div>
+                        <div class="detail-item"><label>Assigned Doctor</label><span id="dashDoctor">--</span></div>
+                    </div>
+                    <span id="stabilityBadge" class="badge-status badge-stable">Stable</span>
+                </div>
+
+                <!-- 2. MODE SELECTOR BAR (CONNECTED / MANUAL / ALL) -->
+                <div class="card" style="margin-bottom:20px; background:#f8fafc; border:1px solid #cbd5e1;">
+                    <h3>Vitals Data Source Options</h3>
+                    <p style="color:#64748b; margin-top:4px; margin-bottom:12px;">Select data input mode or view all active patient systems:</p>
+                    <div style="display:flex; gap:25px; flex-wrap:wrap; align-items:center;">
+                        <label style="font-weight:600; cursor:pointer;">
+                            <input type="radio" name="systemMode" value="CONNECTED" checked onchange="handleModeChange('CONNECTED')"> 
+                            Connection Established (Sensed Data)
+                        </label>
+                        <label style="font-weight:600; cursor:pointer;">
+                            <input type="radio" name="systemMode" value="NOT_CONNECTED" onchange="handleModeChange('NOT_CONNECTED')"> 
+                            Manually Enter Data (Not Connected)
+                        </label>
+                        <label style="font-weight:600; cursor:pointer;">
+                            <input type="radio" name="systemMode" value="ALL" onchange="handleModeChange('ALL')"> 
+                            ALL (List All Active Patients)
+                        </label>
+                    </div>
+
+                    <!-- Manual Input Controls (Shown only in Manual Mode) -->
+                    <div id="manualControls" style="display:none; margin-top:15px; padding-top:15px; border-top:1px dashed #cbd5e1;">
+                        <h4>Enter Patient Vitals Manually</h4>
+                        <div style="display:flex; gap:10px; margin-top:10px; flex-wrap:wrap;">
+                            <input type="number" id="mHR" placeholder="Heart Rate (BPM)" style="padding:10px; flex:1;">
+                            <input type="number" id="mSpO2" placeholder="SpO2 (%)" style="padding:10px; flex:1;">
+                            <input type="number" step="0.1" id="mTemp" placeholder="Temp (°C)" style="padding:10px; flex:1;">
+                            <button onclick="submitManualVitals()" class="sos-alert-btn" style="background:#10b981; width:auto;">Save & Log Vitals</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3A. MAIN DASHBOARD CONTENT GRID -->
+                <div id="singleDashboardGrid" class="dashboard-grid">
+                    <div class="left-panel">
+                        <!-- Vitals Cards Grid (Shown ONLY in Connected Mode) -->
+                        <div class="vitals-grid" id="vitalsGridContainer">
+                            <div class="card vital-card" id="hrCard">
+                                <div class="vital-header">Heart Rate</div>
+                                <div class="vital-value" id="hrVal">- <unit>bpm</unit></div>
+                                <span class="tag-normal" id="hrTag">Waiting for Stream</span>
+                            </div>
+                            <div class="card vital-card" id="spo2Card">
+                                <div class="vital-header">SpO2</div>
+                                <div class="vital-value" id="spo2Val">- <unit>%</unit></div>
+                                <span class="tag-normal" id="spo2Tag">Waiting for Stream</span>
+                            </div>
+                            <div class="card vital-card" id="tempCard">
+                                <div class="vital-header">Temperature</div>
+                                <div class="vital-value" id="tempVal">- <unit>°C</unit></div>
+                                <span class="tag-normal" id="tempTag">Waiting for Stream</span>
+                            </div>
+                        </div>
+
+                        <!-- Vitals Log History Table (Persistent) -->
+                        <div class="card" style="margin-top:20px;">
+                            <h3>Patient Vitals Log History</h3>
+                            <p style="color:#64748b; font-size:0.9rem; margin-bottom:10px;">Persistent record of logged vitals with timestamps:</p>
+                            <table class="readings-table">
+                                <thead>
+                                    <tr>
+                                        <th>Timestamp</th>
+                                        <th>Mode</th>
+                                        <th>Heart Rate</th>
+                                        <th>SpO2</th>
+                                        <th>Temperature</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="vitalsHistoryTableBody">
+                                    <tr><td colspan="6">No logged vitals history available for this patient.</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Right SOS Emergency Panel -->
+                    <div class="right-panel">
+                        <div class="sos-card" id="sosBox">
+                            <div class="sos-header">PATIENT SOS ALARM</div>
+                            <p id="sosStatusText" style="margin-bottom:15px;">Monitoring Active</p>
+
+                            <!-- Connected Mode SOS Buttons -->
+                            <div id="connectedSosGroup">
+                                <div class="sos-button" onclick="triggerSOS('System Hardware SOS Button')">SOS</div>
+                                <button class="sos-alert-btn" style="background:#6c757d; margin-top:10px;" onclick="turnOffSOS()">OFF / Silence</button>
+                            </div>
+
+                            <!-- Manual Not-Connected Mode SOS Buttons -->
+                            <div id="manualSosGroup" style="display:none;">
+                                <button class="sos-alert-btn" style="background:#dc2626; margin-bottom:10px;" onclick="triggerManual5SecSOS()">ON (5 Sec Alarm Ring)</button>
+                                <button class="sos-alert-btn" style="background:#6c757d;" onclick="turnOffSOS()">OFF</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3B. "ALL" PATIENTS VIEW TABLE -->
+                <div id="allPatientsView" class="card" style="display:none; margin-top:10px;">
+                    <h3>All Active Patients List (Connected & Not-Connected)</h3>
+                    <p style="color:#64748b; margin-bottom:15px;">Overview of all currently checked-in patient systems across wards:</p>
+                    <table class="readings-table">
+                        <thead>
+                            <tr>
+                                <th>Patient ID</th>
+                                <th>Name</th>
+                                <th>Bed No</th>
+                                <th>Diagnosis</th>
+                                <th>Doctor</th>
+                                <th>Mobile</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="allPatientsTableBody">
+                            <tr><td colspan="7">Loading active patient list...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+            </div>
+
+            <!-- TAB 2: PATIENT CHECK-IN -->
+            <div id="tab-patient-checkin" class="tab-page" style="display:none;">
+                <div class="card" style="max-width:500px; margin:30px auto;">
+                    <h2>Patient Check-In</h2>
+                    <br>
+                    <form onsubmit="handleCheckIn(event)">
+                        <input type="text" id="pName" placeholder="Full Name" required style="width:100%; margin-bottom:10px; padding:10px;">
+                        <input type="tel" id="pMobile" placeholder="Mobile Number" required style="width:100%; margin-bottom:10px; padding:10px;">
+                        <input type="email" id="pEmail" placeholder="Email ID" required style="width:100%; margin-bottom:10px; padding:10px;">
+                        <input type="text" id="pDiagnosis" placeholder="Diagnosis (e.g. High Fever / Heart Pain)" required style="width:100%; margin-bottom:10px; padding:10px;">
+                        <input type="text" id="pBed" placeholder="Bed Number (e.g. B-06)" required style="width:100%; margin-bottom:10px; padding:10px;">
+                        <button type="submit" class="sos-alert-btn" style="background:#007bff; width:100%;">Register Patient</button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- TAB 3: DOCTOR PORTAL -->
+            <div id="tab-doctor-portal" class="tab-page" style="display:none;">
+                <div class="card" style="margin:20px;">
+                    <h2>Doctor Search Panel</h2>
+                    <p style="color:#64748b; margin-bottom:10px;">Keyword Router: <b>Fever</b> &rarr; Dr. Amit Sharma | <b>Pain</b> &rarr; Dr. Sudha Nayak | <b>Heart</b> &rarr; Dr. Radha Singh</p>
+                    <select id="doctorSelect" onchange="fetchDoctorPatients()" style="padding:10px; font-size:1rem;">
+                        <option value="Dr. Amit Sharma">Dr. Amit Sharma (Fever / General)</option>
+                        <option value="Dr. Sudha Nayak">Dr. Sudha Nayak (Pain Specialist)</option>
+                        <option value="Dr. Radha Singh">Dr. Radha Singh (Heart Specialist)</option>
+                    </select>
+                </div>
+                <div class="card" style="margin:20px;">
+                    <h3>Assigned Active Patients</h3>
+                    <table class="readings-table">
+                        <thead><tr><th>Patient ID</th><th>Name</th><th>Bed</th><th>Diagnosis</th><th>Mobile</th></tr></thead>
+                        <tbody id="docActiveTable"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- TAB 4: ALARM HISTORY -->
+            <div id="tab-alarm-history" class="tab-page" style="display:none;">
+                <div class="card" style="margin:20px;">
+                    <h2>Emergency Alarm History Records</h2>
+                    <br>
+                    <table class="readings-table">
+                        <thead><tr><th>Timestamp</th><th>Patient ID</th><th>Name</th><th>Bed No</th><th>Mode</th><th>Reason</th></tr></thead>
+                        <tbody id="alarmHistoryTable"></tbody>
+                    </table>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyBoInxfQz_vv0c6VWvLl-E15s1564DcgPU",
+            authDomain: "smartbedportal.firebaseapp.com",
+            databaseURL: "https://smartbedportal-default-rtdb.firebaseio.com",
+            projectId: "smartbedportal",
+            storageBucket: "smartbedportal.firebasestorage.app",
+            messagingSenderId: "60828550002",
+            appId: "1:60828550002:web:003760b3227c55e54913eb"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const socket = new WebSocket(`ws://${window.location.host}`);
+        
+        let currentMode = 'CONNECTED';
+        let audioCtx = null;
+        let alarmOscillator = null;
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-page').forEach(el => el.style.display = 'none');
+            document.getElementById(`tab-${tabId}`).style.display = 'block';
+            if (tabId === 'dashboard') loadLatestPatient();
+            if (tabId === 'doctor-portal') fetchDoctorPatients();
+            if (tabId === 'alarm-history') fetchAlarmHistory();
+        }
+
+        function handleModeChange(mode) {
+            currentMode = mode;
+            const badge = document.getElementById('systemBadge');
+            const manualControls = document.getElementById('manualControls');
+            const connGroup = document.getElementById('connectedSosGroup');
+            const manGroup = document.getElementById('manualSosGroup');
+            const singleGrid = document.getElementById('singleDashboardGrid');
+            const allPatientsView = document.getElementById('allPatientsView');
+            const vitalsGridContainer = document.getElementById('vitalsGridContainer');
+
+            if (mode === 'CONNECTED') {
+                badge.innerText = 'CONNECTION ESTABLISHED';
+                badge.style.backgroundColor = '#10b981';
+                manualControls.style.display = 'none';
+                vitalsGridContainer.style.display = 'grid'; // Show sensor cards
+                connGroup.style.display = 'block';
+                manGroup.style.display = 'none';
+                singleGrid.style.display = 'grid';
+                allPatientsView.style.display = 'none';
+                resetSensedTiles();
+            } else if (mode === 'NOT_CONNECTED') {
+                badge.innerText = 'NOT CONNECTED (MANUAL MODE)';
+                badge.style.backgroundColor = '#dc2626';
+                manualControls.style.display = 'block';
+                vitalsGridContainer.style.display = 'none'; // Hide sensor cards in manual mode
+                connGroup.style.display = 'none';
+                manGroup.style.display = 'block';
+                singleGrid.style.display = 'grid';
+                allPatientsView.style.display = 'none';
+            } else if (mode === 'ALL') {
+                badge.innerText = 'ALL PATIENT SYSTEMS';
+                badge.style.backgroundColor = '#6366f1';
+                manualControls.style.display = 'none';
+                singleGrid.style.display = 'none';
+                allPatientsView.style.display = 'block';
+                loadAllPatientsList();
+            }
+        }
+
+        function resetSensedTiles() {
+            document.getElementById('hrVal').innerHTML = `- <unit>bpm</unit>`;
+            document.getElementById('spo2Val').innerHTML = `- <unit>%</unit>`;
+            document.getElementById('tempVal').innerHTML = `- <unit>°C</unit>`;
+            document.getElementById('hrTag').innerText = 'Waiting for Stream';
+            document.getElementById('spo2Tag').innerText = 'Waiting for Stream';
+            document.getElementById('tempTag').innerText = 'Waiting for Stream';
+        }
+
+        function submitManualVitals() {
+            const hr = parseInt(document.getElementById('mHR').value);
+            const spo2 = parseInt(document.getElementById('mSpO2').value);
+            const temp = parseFloat(document.getElementById('mTemp').value);
+            const patientId = document.getElementById('dashPatientId').innerText;
+
+            if (isNaN(hr) || isNaN(spo2) || isNaN(temp)) {
+                alert("Please enter valid numeric vitals.");
+                return;
+            }
+
+            fetch('/api/vitals/manual', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ patientId, heartRate: hr, spo2: spo2, temp: temp })
+            })
+            .then(res => res.json())
+            .then(() => {
+                alert("Manual Vitals Saved & Logged!");
+                document.getElementById('mHR').value = '';
+                document.getElementById('mSpO2').value = '';
+                document.getElementById('mTemp').value = '';
+                fetchVitalsHistory(patientId);
+            });
+        }
+
+        function fetchVitalsHistory(patientId) {
+            if (!patientId || patientId === '--') return;
+            
+            fetch(`/api/vitals/history?patientId=${encodeURIComponent(patientId)}`)
+            .then(res => res.json())
+            .then(logs => {
+                const tbody = document.getElementById('vitalsHistoryTableBody');
+                if (logs && logs.length) {
+                    tbody.innerHTML = logs.map(l => `
+                        <tr>
+                            <td>${new Date(l.timestamp).toLocaleString()}</td>
+                            <td><b>${l.mode}</b></td>
+                            <td>${l.heartRate} bpm</td>
+                            <td>${l.spo2}%</td>
+                            <td>${l.temp} °C</td>
+                            <td><span style="color:${l.isStable ? '#10b981' : '#dc2626'}; font-weight:bold;">${l.isStable ? 'Stable' : 'Alert'}</span></td>
+                        </tr>
+                    `).join('');
+                } else {
+                    tbody.innerHTML = `<tr><td colspan="6">No logged vitals history available for this patient.</td></tr>`;
+                }
+            });
+        }
+
+        function loadAllPatientsList() {
+            fetch('/api/all-patients')
+            .then(res => res.json())
+            .then(patients => {
+                const tbody = document.getElementById('allPatientsTableBody');
+                if (patients && patients.length) {
+                    tbody.innerHTML = patients.map(p => `
+                        <tr>
+                            <td>${p.patientId}</td>
+                            <td><b>${p.name}</b></td>
+                            <td>${p.bedNo}</td>
+                            <td>${p.diagnosis}</td>
+                            <td>${p.assignedDoctor}</td>
+                            <td>${p.mobile}</td>
+                            <td><button onclick="selectActivePatient('${p.patientId}', '${p.name}', '${p.bedNo}', '${p.diagnosis}', '${p.assignedDoctor}')" style="padding:5px 10px; cursor:pointer; background:#007bff; color:#fff; border:none; border-radius:4px;">Monitor</button></td>
+                        </tr>
+                    `).join('');
+                } else {
+                    tbody.innerHTML = `<tr><td colspan="7">No active patients registered yet.</td></tr>`;
+                }
+            });
+        }
+
+        function selectActivePatient(id, name, bed, diag, doc) {
+            updateDashboardPatient({ patientId: id, name, bedNo: bed, diagnosis: diag, assignedDoctor: doc });
+            document.querySelector('input[name="systemMode"][value="CONNECTED"]').checked = true;
+            handleModeChange('CONNECTED');
+        }
+
+        function playAlarmSound(durationMs = 5000) {
+            try {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                alarmOscillator = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                alarmOscillator.type = 'sawtooth';
+                alarmOscillator.frequency.setValueAtTime(880, audioCtx.currentTime);
+                alarmOscillator.connect(gain);
+                gain.connect(audioCtx.destination);
+                alarmOscillator.start();
+                if (durationMs > 0) setTimeout(() => turnOffSOS(), durationMs);
+            } catch(e) {}
+        }
+
+        function triggerManual5SecSOS() {
+            triggerSOS('Manual SOS Test Button (5 Sec Alarm)');
+            playAlarmSound(5000);
+        }
+
+        function triggerSOS(reason) {
+            const payload = {
+                patientId: document.getElementById('dashPatientId').innerText,
+                name: document.getElementById('dashName').innerText,
+                bedNo: document.getElementById('dashBed').innerText,
+                reason, mode: currentMode
+            };
+
+            fetch('/api/sos/trigger', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            document.getElementById('sosBox').style.backgroundColor = '#fee2e2';
+            document.getElementById('sosStatusText').innerText = 'ALARM ACTIVE';
+            if (currentMode === 'CONNECTED') playAlarmSound(0);
+        }
+
+        function turnOffSOS() {
+            if (alarmOscillator) {
+                try { alarmOscillator.stop(); } catch(e){}
+                alarmOscillator = null;
+            }
+            document.getElementById('sosBox').style.backgroundColor = '#fef2f2';
+            document.getElementById('sosStatusText').innerText = 'Monitoring Active';
+        }
+
+        function handleCheckIn(e) {
+            e.preventDefault();
+            const payload = {
+                name: document.getElementById('pName').value,
+                mobile: document.getElementById('pMobile').value,
+                email: document.getElementById('pEmail').value,
+                diagnosis: document.getElementById('pDiagnosis').value,
+                bedNo: document.getElementById('pBed').value
+            };
+
+            fetch('/api/patient/checkin', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            })
+            .then(res => res.json())
+            .then(data => {
+                alert(`Patient ${data.patient.name} checked in and routed to ${data.patient.assignedDoctor}!`);
+                updateDashboardPatient(data.patient);
+                switchTab('dashboard');
+            });
+        }
+
+        function updateDashboardPatient(p) {
+            const patientId = p.patientId || p.patient_id;
+            document.getElementById('dashPatientId').innerText = patientId;
+            document.getElementById('dashName').innerText = p.name;
+            document.getElementById('dashBed').innerText = p.bedNo || p.bed_no;
+            document.getElementById('dashDiagnosis').innerText = p.diagnosis;
+            document.getElementById('dashDoctor').innerText = p.assignedDoctor || p.assigned_doctor;
+
+            fetchVitalsHistory(patientId);
+        }
+
+        function loadLatestPatient() {
+            fetch('/api/patient/latest')
+            .then(res => res.json())
+            .then(p => { if (p) updateDashboardPatient(p); });
+        }
+
+        function fetchDoctorPatients() {
+            const doc = document.getElementById('doctorSelect').value;
+            fetch(`/api/doctor/patients?doctorName=${encodeURIComponent(doc)}`)
+            .then(res => res.json())
+            .then(data => {
+                const tbody = document.getElementById('docActiveTable');
+                tbody.innerHTML = data.active.map(p => `
+                    <tr>
+                        <td>${p.patientId}</td>
+                        <td><b>${p.name}</b></td>
+                        <td>${p.bedNo}</td>
+                        <td>${p.diagnosis}</td>
+                        <td>${p.mobile}</td>
+                    </tr>
+                `).join('');
+            });
+        }
+
+        function fetchAlarmHistory() {
+            fetch('/api/alarms')
+            .then(res => res.json())
+            .then(data => {
+                const tbody = document.getElementById('alarmHistoryTable');
+                tbody.innerHTML = data.map(a => `
+                    <tr>
+                        <td>${a.timestamp}</td>
+                        <td>${a.patientId}</td>
+                        <td><b>${a.patientName}</b></td>
+                        <td>${a.bedNo}</td>
+                        <td><b>${a.mode}</b></td>
+                        <td><span style="color:red; font-weight:bold;">${a.reason}</span></td>
+                    </tr>
+                `).join('');
+            });
+        }
+
+        // Live WebSocket Telemetry Receiver
+        socket.onmessage = (event) => {
+            const msg = JSON.parse(event.data);
+            if (msg.type === 'MANUAL_VITALS_STREAM' && currentMode === 'NOT_CONNECTED') {
+                fetchVitalsHistory(msg.patientId);
+            }
+        };
+
+        handleModeChange('CONNECTED');
+        loadLatestPatient();
+    </script>
+</body>
+</html>
